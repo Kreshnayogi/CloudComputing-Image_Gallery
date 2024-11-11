@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Storage Project</title>
+    <style>
+        body {
+            background-color: rgb(255, 255, 255);
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 40vh; /* Adjust height as needed */
+            text-align: center;
+            background-color: lightblue;
+            box-shadow: 4px 12px 12px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        form input[type="file"] {
+            margin-bottom: 10px;
+        }
+
+        form button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 10px;
+            background-color: #707070; 
+            color: white;
+        }
+
+        form button:hover {
+            background-color: #272727; 
+        }
+        
+        .file-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center; /* Center the content */
+            gap: 20px; /* Space between images */
+            padding: 20px; /* Padding around the gallery */
+        }
+
+        .file-container {
+            margin: 10px;
+            text-align: center;
+            vertical-align: top;
+            box-sizing: border-box; /* Ensure padding and border are included in the element's total width and height */
+        }
+
+        .file-container img, .file-container embed {
+            width: 200px; /* Consistent width for images */
+            height: auto; /* Maintain aspect ratio */
+            display: block;
+            margin: 0 auto;
+            border: 2px solid #ddd; /* Border around images */
+            border-radius: 5px; /* Rounded corners */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+            transition: transform 0.3s ease; /* Smooth transition for scaling */
+            cursor: pointer; /* Make the cursor a pointer to indicate it's clickable */
+        }
+
+        /* Hover effect for images */
+        .file-container img:hover, .file-container embed:hover {
+            transform: scale(1.05); /* Slight zoom effect on hover */
+        }
+
+        .file-title {
+            margin-top: 5px;
+            word-wrap: break-word; /* Ensure long titles break and don't overflow */
+        }
+
+        .file-actions {
+            margin-top: 5px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="header-container">
+        <h1>Image Gallery</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" name="file">
+            <button type="submit">Upload</button>
+        </form>
+    </div>
+
+    <div id="file-list" class="file-list"></div>
+
+    <script>
+        // Fetch and display files
+        function fetchFiles() {
+            fetch('/files')
+                .then(response => response.json())
+                .then(files => {
+                    console.log('Fetched files:', files);  // Log the fetched files
+                    const fileList = document.getElementById('file-list');
+                    fileList.innerHTML = '';
+                    files.forEach(file => {
+                        const div = document.createElement('div');
+                        div.className = 'file-container';
+
+                        const fileType = file.key.split('.').pop().toLowerCase();
+                        const fileNameWithoutExtension = file.key.split('.').slice(0, -1).join('.');
+
+                        if (fileType === 'pdf') {
+                            const embed = document.createElement('embed');
+                            embed.src = file.url;
+                            embed.type = 'application/pdf';
+                            embed.style.height = '200px'; // Set fixed height
+                            embed.style.width = 'auto'; // Allow width to adjust automatically
+                            div.appendChild(embed);
+                        } else if (['jpg', 'jpeg', 'png', 'gif'].includes(fileType)) {
+                            const img = document.createElement('img');
+                            img.src = file.url;
+                            img.alt = file.key;
+                            img.onload = function() {
+                                const aspectRatio = img.naturalWidth / img.naturalHeight;
+                                img.style.width = `${200 * aspectRatio}px`;
+                            };
+                            img.onclick = () => window.open(file.url, '_blank'); // Open image in new tab
+                            div.appendChild(img);
+                        } else {
+                            const link = document.createElement('a');
+                            link.href = file.url;
+                            link.textContent = `Open ${fileNameWithoutExtension}`;
+                            link.target = '_blank';
+                            div.appendChild(link);
+                        }
+
+                        const title = document.createElement('div');
+                        title.className = 'file-title';
+                        title.textContent = fileNameWithoutExtension;
+                        div.appendChild(title);
+
+                        const actions = document.createElement('div');
+                        actions.className = 'file-actions';
+
+                        const deleteButton = document.createElement('button');
+                        deleteButton.textContent = 'Delete';
+                        deleteButton.onclick = () => deleteFile(file.key);
+
+                        actions.appendChild(deleteButton);
+                        div.appendChild(actions);
+
+                        fileList.appendChild(div);
+                    });
+                })
+                .catch(error => console.error('Error fetching file list:', error));
+        }
+
+        // Delete file function
+        function deleteFile(fileName) {
+            fetch('/delete-file', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ fileName })
+            })
+            .then(response => response.text())
+            .then(result => {
+                alert(result);
+                fetchFiles();
+            })
+            .catch(error => {
+                console.error('Error deleting file:', error);
+                alert('Error deleting file');
+            });
+        }
+
+        // Handle upload form submission
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                alert(result.message || 'File uploaded successfully');
+                fetchFiles();
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                alert('Error uploading file');
+            }
+        });
+
+        // Initial fetch of files
+        fetchFiles();
+    </script>
+</body>
+</html>
