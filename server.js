@@ -1,11 +1,11 @@
+require('dotenv').config();
+
 const express = require('express'); // Importing Express framework
 const multer = require('multer'); // Importing Multer for file uploads
 const AWS = require('aws-sdk'); // Importing AWS SDK for interacting with AWS services
 const path = require('path'); // Importing path module for handling file paths
 
 const app = express(); // Creating an instance of an Express application
-
-require('dotenv').config();
 
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
